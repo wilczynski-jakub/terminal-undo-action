@@ -13,6 +13,11 @@ It has almost all the functionalities the standard **mv** command has, including
 - moving a file or directory into another directory.
 
 
+## Usage
+
+![usage](usage.png)
+
+
 ## Installation
 
 To use the script, copy the [mv_safe](mv_safe) file to a directory included in your `$PATH`, for example:
@@ -35,10 +40,6 @@ Add this line to your ~/.bashrc or ~/.zshrc file, and then run:
 source ~/.bashrc # (or ~/.zshrc)
 ```
 
-
-## Usage
-
-![usage](usage.png)
 
 ## Undo removing files
 
