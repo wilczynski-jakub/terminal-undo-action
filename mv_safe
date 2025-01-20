@@ -1,0 +1,99 @@
+#!/bin/bash
+
+actions=""
+undo_commands=()
+overwrite=""
+move=$(basename "${BASH_SOURCE[0]}")
+
+expanded_args=()
+i=0
+
+for arg in "$@"; do
+
+    if [[ $arg == *[*?]* ]]; then
+        expanded_args+=($arg)
+    else
+        expanded_args+=("$arg")
+    fi
+    
+    new="${expanded_args[$((i++))]}"
+    actions+="_$(basename $new)"
+    
+done
+
+undo_file="$HOME/bin/.undo_mv$actions"
+
+# Obsługa argumentów na podstawie expanded_args
+if [ "${#expanded_args[@]}" -eq 2 ]; then
+
+        src="${expanded_args[0]}"
+        dest="${expanded_args[1]}"
+        src_realpath=$(realpath "$src")
+        dest_realpath=$(realpath "$dest")
+
+        # pierwszy nie jest katalogiem, drugi nie jest katalogiem
+        # wtedy zmiana nazwy lub nadpisanie
+        if [ ! -d "$dest" ] && [ ! -d "$src" ]; then
+
+            # mv: nadpisanie lub zmiana nazwy
+            undo_line="$move $dest_realpath $src_realpath"
+
+            if [ -e "$dest" ]; then
+                undo_line+=" && $move $dest_realpath~ $dest_realpath"
+            fi
+            
+            undo_commands+=("$undo_line")
+
+        # pierwszy nie jest katalogiem, drugi jest katalogiem
+        # wtedy plik ${expanded_args[0]} zostanie przeniesiony do katalogu ${expanded_args[1]}
+        elif [ -d "$dest" ] && [ ! -d "$src" ]; then
+        
+            # mv: przeniesienie pliku ${expanded_args[0]} do katalogu ${expanded_args[1]}
+            undo_commands+=("$move $dest_realpath/$(basename "$src") $src_realpath; ")
+        
+        # pierwszy argument jest katalogiem, drugi nie istnieje (zmiana nazwy katalogu)
+        elif [ -d "$src" ] && [ ! -e "$dest" ]; then
+
+            # mv: zmiana nazwy katalogu ${expanded_args[0]} na ${expanded_args[1]}
+            undo_commands+=("$move $dest_realpath $src_realpath; ")
+        
+        # pierwszy jest katalogiem, drugi nie jest katalogiem, ale istnieje
+        # wtedy mv zwróci błąd, ponieważ nie można nadpisać pliku katalogiem
+        elif [ ! -d "$dest" ] && [ -d "$src" ] && [ -e "$dest" ]; then
+            # mv: błąd, ponieważ nie można nadpisać istniejącego pliku katalogiem
+            /usr/bin/mv "$src_realpath" "$dest_realpath" 2>/dev/null || exit
+
+        # oba argumenty są katalogami
+        # wtedy katalog ${expanded_args[0]} zostanie przeniesiony do katalogu ${expanded_args[1]}
+        else
+            undo_commands+=("$move $dest_realpath/$(basename "$src") $src_realpath; ")
+        fi
+     
+else # dowolna liczba argumentów
+
+    destination=$(realpath "${expanded_args[-1]}")
+    
+    if [ ! -d "$destination" ]; then
+        stat -c "%n: %F" "$destination"
+    else 
+        for file in "${expanded_args[@]::${#expanded_args[@]}-1}"; do
+            $move "$file" "$destination"
+        done
+    fi
+    
+    exit
+
+fi
+
+# jak się mv nie powiedzie, to nie zmieniamy undo_file
+($overwrite && /usr/bin/mv -b -i "${expanded_args[@]}") || exit
+
+# Zapisanie poleceń undo do pliku undo_file
+(sleep 1.1; \
+echo -e '#!/bin/bash'"\n" > "$undo_file"; \
+undo_tailed="tail -n +6 $undo_file | tr '\n' ' '"; \
+echo 'do_you_want_to_continue.sh $('$undo_tailed') || exit' >> "$undo_file"; \
+echo '(sleep 1; echo > $(realpath "${BASH_SOURCE[0]}")) &' >> "$undo_file"; \
+for line in "${undo_commands[@]}"; do \
+    echo -e "\n${line}" >> "$undo_file"; \
+done) &
