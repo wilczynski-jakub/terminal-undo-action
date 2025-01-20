@@ -1,0 +1,22 @@
+#!/bin/bash
+
+if compgen -G "$HOME/bin/.undo*" > /dev/null; then
+
+    for undo_file in "$HOME/bin/.undo"*; do
+
+        echo
+        basename $undo_file
+        p $undo_file
+        ( "$undo_file" ) || true
+        echo
+
+        /usr/bin/rm $undo_file
+
+    done
+    
+else
+
+    echo "$0 $@"
+    echo "No undo actions available at the moment."
+    
+fi
