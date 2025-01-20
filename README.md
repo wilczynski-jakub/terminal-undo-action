@@ -47,5 +47,5 @@ My initial plan was to write the undo script both for *mv* and *rm*. However, th
 To make the **rm** command move files into trash instead of deleting them permamently, you can create an alias:
 
 ```bash
-alias rm='gio trash
+alias rm='gio trash'
 ```
